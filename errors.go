@@ -11,4 +11,7 @@ var (
 	ErrUnexpected = errors.New("mymem: unexpected line in get response")
 	ErrFailed     = errors.New("mymem: failed to locate entry in config table 'containers' in database 'innodb_memcache'")
 	ErrContainers = errors.New("mymem: config table 'containers' not in memcache")
+	ErrCount      = errors.New("mymem: column count doesn't match value count at row")
+	ErrNonPrt     = errors.New("mymem: non pointer argument")
+	ErrNonStruct  = errors.New("mymem: non struct argument")
 )

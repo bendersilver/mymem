@@ -36,46 +36,47 @@ func (r *Rows) readAllItems() error {
 }
 
 func (r *Rows) readValue() error {
-	r.values = nil
+	if r.conn == nil {
+		return fmt.Errorf("closed network connection")
+	}
 	var err error
-	r.buf = make([]byte, 1)
+	var line []byte
+	buf := make([]byte, 1)
 	for {
-		_, err = r.conn.Read(r.buf)
+		_, err = r.conn.Read(buf)
 		if err != nil {
 			return err
 		}
-		r.line = append(r.line, r.buf...)
-		if bytes.HasSuffix(r.buf, []byte("\r\n")) {
+		line = append(line, buf...)
+		if bytes.HasSuffix(line, []byte("\r\n")) {
 			break
 		}
 	}
-	r.line = bytes.TrimSpace(r.line)
-	if len(r.line) >= 5 && string(r.line[:5]) == "VALUE" {
-		_, err = fmt.Sscanf(string(r.line), "VALUE %s %d %d\r\n", &r.Key, &r.Flag, &r.lenBody)
+	line = bytes.TrimSpace(line)
+	if len(line) >= 5 && string(line[:5]) == "VALUE" {
+		r.values = nil
+		_, err = fmt.Sscanf(string(line), "VALUE %s %d %d\r\n", &r.Key, &r.Flag, &r.lenBody)
 		if err != nil {
 			return err
 		}
 		// read body
-		r.buf = make([]byte, r.lenBody)
-		_, err = r.conn.Read(r.buf)
+		buf = make([]byte, r.lenBody+2)
+		_, err = r.conn.Read(buf)
 		if err != nil {
 			return err
 		}
-		r.buf = bytes.TrimSpace(r.buf)
-		r.values = strings.Split(strings.TrimSpace(string(r.buf)), r.delimiter)
-		r.count++
+		r.values = strings.Split(strings.TrimSpace(string(buf)), r.delimiter)
 		r.doStep = true
 		return nil
 
-	} else if string(r.line) == "END" {
-		if r.count == 0 {
+	} else if string(line) == "END" {
+		if r.values == nil {
 			return ErrNotFound
 
 		}
-		r.Close()
 		return nil
 
-	} else if string(r.line) == "ERROR" {
+	} else if string(line) == "ERROR" {
 		return ErrQuery
 
 	}
