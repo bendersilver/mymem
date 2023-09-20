@@ -134,8 +134,8 @@ func (r *Rows) readAllItems() error {
 }
 
 func (r *Rows) readValue() error {
-	if r.conn == nil {
-		return fmt.Errorf("closed network connection")
+	if r.err != nil {
+		return r.err //fmt.Errorf("closed network connection")
 	}
 	var err error
 	var line []byte
