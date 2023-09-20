@@ -3,7 +3,9 @@ package mymem
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"strings"
+	"time"
 )
 
 func (r *Rows) Close() error {
@@ -24,6 +26,96 @@ func (r *Rows) Next() bool {
 		return false
 	}
 	return r.doStep
+}
+
+func (r *Rows) newConn(m *MySQLMemcached) *Rows {
+	r.delimiter = m.delimiter
+	r.conn, r.err = net.DialTimeout("tcp", m.host, time.Second)
+	if r.err != nil {
+		r.err = fmt.Errorf("mymem: connection error: %v", r.err)
+	}
+	return r
+}
+
+func (r *Rows) getContainers(name string) *Rows {
+	if r.err != nil {
+		return r
+	}
+	_, r.err = r.conn.Write([]byte(fmt.Sprintf("get @@containers.%s\r\n", name)))
+	if r.err != nil {
+		r.err = fmt.Errorf("mymem: write query get containers: %v", r.err)
+		return r
+	}
+	r.err = r.readAllItems()
+	if r.err != nil {
+		if r.err == ErrNotFound {
+			r.err = fmt.Errorf("mymem: required adding innodb_memcache.containers to memcache")
+		}
+		return r
+	}
+	if len(r.values) < 2 {
+		r.err = fmt.Errorf("mymem: empty value_columns in table 'containers'")
+		return r
+	}
+	r.container = &struct {
+		Value []string
+		Key   string
+	}{r.values, r.values[0]}
+
+	return r
+}
+
+func (r *Rows) cdNamespace(name string) *Rows {
+	if r.err != nil {
+		return r
+	}
+	_, r.err = r.conn.Write([]byte(fmt.Sprintf("get @@%s\r\n", name)))
+	if r.err != nil {
+		r.err = fmt.Errorf("mymem: write query cd namespace: %v", r.err)
+		return r
+	}
+	r.err = r.readAllItems()
+	return r
+	// failed to locate entry in config table 'containers' in database 'innodb_memcache'
+}
+
+func (r *Rows) writeCMD(cmd string) *Rows {
+	if r.err != nil {
+		return r
+	}
+	_, r.err = r.conn.Write([]byte(cmd))
+	if r.err != nil {
+		r.err = fmt.Errorf("mymem: write cmd %s: %v", cmd, r.err)
+	}
+	return r
+	// failed to locate entry in config table 'containers' in database 'innodb_memcache'
+}
+
+func (r *Rows) writeEndLine() (err error) {
+	var out []byte
+	buf := make([]byte, 1)
+	for {
+		_, err = r.conn.Read(buf)
+		if err != nil {
+			return
+		}
+		out = append(out, buf...)
+		if bytes.HasSuffix(out, []byte("\r\n")) {
+			break
+		}
+	}
+	out = bytes.TrimSpace(out)
+	switch string(out) {
+	case "NOT_STORED":
+		return ErrNotStored
+	case "NOT_FOUND":
+		return ErrNotFound
+	case "ERROR":
+		return ErrQuery
+	case "DELETED", "STORED":
+		return nil
+	}
+	return fmt.Errorf("mymem: unexpected line in response: '%s'", out)
 }
 
 func (r *Rows) readAllItems() error {

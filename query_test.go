@@ -1,51 +1,125 @@
 package mymem
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"testing"
 )
 
-func Test(t *testing.T) {
-	var j struct {
-		Name string    `json:"name"`
-		Val  B64String `json:"bval"`
-	}
+func TestSet(t *testing.T) {
+	// Table: dash_session
+
+	// Columns:
+	// 	k		varchar(256) PK
+	// 	vb64	text
+	// 	ttl		bigint
 
 	m := NewMySQLMemcached("127.0.0.1:11211", "|")
-	rows, err := m.Query("conf", "mc.dash_login_users")
+
+	type b64 struct {
+		B64Struct `json:"-"`
+		String    string
+		Int       int
+		Bool      bool
+	}
+	b, err := json.MarshalIndent(&b64{String: "string value", Int: 100500}, "", "\t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("\n%s", b)
+
+	b64val := base64.StdEncoding.EncodeToString(b)
+	t.Logf("\n%s", b64val)
+
+	err = m.Set("dash_session ", "unique_key", b64val, 6400)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var example struct {
+		K   string `json:"k"`
+		Val b64    `json:"vb64"`
+		TTL int64  `json:"ttl"`
+	}
+
+	row := m.QueryRow("dash_session", "unique_key")
+
+	mp, err := row.Map()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("\n", mp)
+
+	vals, err := row.Values()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("\n", vals)
+
+	row.ScanStruct(&example)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("\n%v", example)
+
+	var k string
+	var val b64
+	var ttl int64
+	err = row.Scan(&k, &val, &ttl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("\n", k, val, ttl)
+
+	var valStr B64String
+	err = row.Scan(nil, &valStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("\n", valStr)
+
+	var valByte B64Byte
+	err = row.Scan(nil, &valByte, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("\n%s", valByte)
+	err = m.Delete("dash_session", "unique_key")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestQuery(t *testing.T) {
+	m := NewMySQLMemcached("127.0.0.1:11211", "|")
+	// https://dev.mysql.com/doc/refman/8.0/en/innodb-memcached-multiple-get-range-query.html
+	// To get all values greater than B, enter get @>B:
+	// get @>B
+
+	// To get all values less than M, enter get @<M:
+	// get @<M
+
+	// To get all values less than and including M, enter get @<=M:
+	// get @<=M
+
+	// To get values greater than B but less than M, enter get @>B@<M:
+	// get @>B@<M
+
+	rows, err := m.Query("dash_session ", "@>")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rows.Close()
-	var name string
-	var val B64String
+	var k string
+
 	for rows.Next() {
-		t.Log(rows.Map())
-		t.Log(rows.Scan(&name, &val))
-		t.Log(name, val)
-		t.Log(rows.ScanStruct(&j))
-		t.Log(j)
+		err = rows.Scan(&k, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log("\n", k)
 	}
-	t.Fatal(rows.Err())
-}
-
-func TestQueryRow(t *testing.T) {
-
-	var j struct {
-		Name string `json:"name"`
-		Val  struct {
-			B64Struct
-			Table string
-			Key   string
-			Value string
-		} `json:"bval"`
-	}
-	// j.UnmarshalJSON([]byte(`{"name": "2"}`))
-	// t.Fatal(json.Unmarshal([]byte(`{"name": "2"}`), &j), j)
-
-	m := NewMySQLMemcached("127.0.0.1:11211", "|")
-	err := m.QueryRow("conf", "mc.dash_login_users").ScanStruct(&j)
-	if err != nil {
+	if rows.Err() != nil {
 		t.Fatal(err)
 	}
-	t.Fatal(j)
 }

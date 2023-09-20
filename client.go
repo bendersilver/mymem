@@ -39,10 +39,8 @@ type Rows struct {
 		Value []string
 		Key   string
 	}
-	// buf, line []byte
 	lenBody int
-
-	values []string
-	doStep bool
-	err    error
+	values  []string
+	doStep  bool
+	err     error
 }

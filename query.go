@@ -2,97 +2,71 @@ package mymem
 
 import (
 	"fmt"
-	"net"
-	"time"
+	"strings"
 )
 
+// Query -
 func (m *MySQLMemcached) Query(name string, key any) (*Rows, error) {
+	name = strings.TrimSpace(name)
 	var r Rows
-	r.delimiter = m.delimiter
-	var err error
 	defer func() {
-		if err != nil {
+		if r.err != nil {
 			r.Close()
 		}
 	}()
-
-	r.conn, err = net.DialTimeout("tcp", m.host, time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("mmcd: connection error: %v", err)
-	}
-
-	// get containers table
-	_, err = r.conn.Write([]byte(fmt.Sprintf("get @@containers.%s\r\n", name)))
-	if err != nil {
-		return nil, fmt.Errorf("mmcd: write query: %v", err)
-	}
-	err = r.readAllItems()
-	if err != nil {
-		if err == ErrNotFound {
-			return nil, fmt.Errorf("required adding innodb_memcache.containers to memcache")
-		}
-	}
-	if len(r.values) < 2 {
-		return nil, fmt.Errorf("mmcd: empty value_columns in table 'containers'")
-	}
-	r.container = &struct {
-		Value []string
-		Key   string
-	}{r.values, r.values[0]}
-
-	_, err = r.conn.Write([]byte(fmt.Sprintf("get @@%s\r\n", name)))
-	if err != nil {
-		return nil, fmt.Errorf("mmcd: write query: %v", err)
-	}
-	err = r.readAllItems()
-	// failed to locate entry in config table 'containers' in database 'innodb_memcache'
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = r.conn.Write([]byte(fmt.Sprintf("get %v\r\n", key)))
-	if err != nil {
-		return nil, fmt.Errorf("mmcd: write query: %v", err)
-	}
-
+	r.newConn(m).
+		getContainers(name).
+		cdNamespace(name).
+		writeCMD(fmt.Sprintf("get %v\r\n", key))
 	return &r, nil
 }
 
-func (m *MySQLMemcached) QueryRow(name string, key any) (r *Rows) {
-	var err error
-	r = new(Rows)
-	r.delimiter = m.delimiter
+// QueryRow -
+func (m *MySQLMemcached) QueryRow(name string, key any) *Rows {
+	name = strings.TrimSpace(name)
+	var r Rows
 	defer r.Close()
-
-	r.conn, err = net.DialTimeout("tcp", m.host, time.Second)
-	if err != nil {
-		r.err = fmt.Errorf("mmcd: connection error: %v", err)
-		return
-	}
-
-	// get containers table
-	_, err = r.conn.Write([]byte(fmt.Sprintf("get @@containers.%s\r\n", name)))
-	if err != nil {
-		r.err = fmt.Errorf("mmcd: write query: %v", err)
-		return
-	}
-	err = r.readAllItems()
-	if err == nil {
-		if len(r.values) < 2 {
-			r.err = fmt.Errorf("mmcd: empty value_columns in table 'containers'")
-			return
-		}
-		r.container = &struct {
-			Value []string
-			Key   string
-		}{r.values, r.values[0]}
-	}
-
-	_, err = r.conn.Write([]byte(fmt.Sprintf("get @@%s.%v\r\n", name, key)))
-	if err != nil {
-		r.err = fmt.Errorf("mmcd: write query: %v", err)
-		return
+	r.newConn(m).
+		getContainers(name).
+		writeCMD(fmt.Sprintf("get @@%s.%v\r\n", name, key))
+	if r.err != nil {
+		return &r
 	}
 	r.Next()
-	return
+	r.Key = fmt.Sprintf("%v", key)
+	return &r
+}
+
+// Delete -
+func (m *MySQLMemcached) Delete(name string, key any) error {
+	var r Rows
+	defer r.Close()
+	r.newConn(m).
+		cdNamespace(strings.TrimSpace(name)).
+		writeCMD(fmt.Sprintf("delete %v\r\n", key))
+	if r.err != nil {
+		return r.err
+	}
+	return r.writeEndLine()
+}
+
+// Set -
+func (m *MySQLMemcached) Set(name string, key any, args ...any) error {
+	var r Rows
+	defer r.Close()
+	var values []string
+	for _, v := range args {
+		if v == nil {
+			return fmt.Errorf("nil value not supported")
+		}
+		values = append(values, fmt.Sprintf("%v", v))
+	}
+	body := strings.Join(values, m.delimiter)
+
+	r.newConn(m).
+		writeCMD(fmt.Sprintf("set @@%s.%v 0 0 %d\r\n%s\r\n", strings.TrimSpace(name), key, len(body), body))
+	if r.err != nil {
+		return r.err
+	}
+	return r.writeEndLine()
 }
