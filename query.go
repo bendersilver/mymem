@@ -37,6 +37,16 @@ func (m *MySQLMemcached) QueryRow(name string, key any) *Rows {
 	return &r
 }
 
+func (m *MySQLMemcached) Exists(name string, key any) (ok bool, err error) {
+	_, err = m.QueryRow(name, key).Values()
+	if err == ErrNotFound {
+		return false, nil
+	} else if err == nil {
+		return true, nil
+	}
+	return
+}
+
 // Delete -
 func (m *MySQLMemcached) Delete(name string, key any) error {
 	var r Rows
