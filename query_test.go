@@ -15,7 +15,7 @@ func TestSet(t *testing.T) {
 	// 	vb64	text
 	// 	ttl		bigint
 
-	m := NewMySQLMemcached("127.0.0.1:11211", "|")
+	m := NewMySQLMemcached(":11211", "|")
 	for {
 		type b64 struct {
 			B64Struct `json:"-"`
@@ -113,7 +113,7 @@ func TestSet(t *testing.T) {
 
 func TestQuery(t *testing.T) {
 
-	m := NewMySQLMemcached("127.0.0.1:11211", "|")
+	m := NewMySQLMemcached(":11211", "|")
 	// https://dev.mysql.com/doc/refman/8.0/en/innodb-memcached-multiple-get-range-query.html
 	// To get all values greater than B, enter get @>B:
 	// get @>B
@@ -127,7 +127,7 @@ func TestQuery(t *testing.T) {
 	// To get values greater than B but less than M, enter get @>B@<M:
 	// get @>B@<M
 
-	rows, err := m.Query("queue ", "@>")
+	rows, err := m.Query("queue", "@>")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,6 +145,6 @@ func TestQuery(t *testing.T) {
 		}
 	}
 	if rows.Err() != nil {
-		t.Fatal(err)
+		t.Fatal(rows.Err())
 	}
 }

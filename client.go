@@ -1,7 +1,6 @@
 package mymem
 
 import (
-	"io"
 	"net"
 )
 
@@ -19,16 +18,14 @@ func (b *B64Struct) B64UnmarshalJSON() {}
 // INSERT INTO innodb_memcache.containers
 // VALUES('containers', 'innodb_memcache', 'containers', 'name', 'key_columns|value_columns', 0, 0, 0, 'PRIMARY');
 type MySQLMemcached struct {
-	network   string
 	host      string
 	delimiter string
 }
 
-func NewMySQLMemcached(network, addr, delimiter string) *MySQLMemcached {
+func NewMySQLMemcached(addr, delimiter string) *MySQLMemcached {
 	return &MySQLMemcached{
 		delimiter: delimiter,
 		host:      addr,
-		network:   network,
 	}
 }
 
@@ -36,7 +33,6 @@ type Rows struct {
 	Key  string
 	Flag int
 
-	rd        io.Reader
 	conn      net.Conn
 	delimiter string
 	container *struct {
