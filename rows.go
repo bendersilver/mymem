@@ -151,13 +151,23 @@ func (r *Rows) readValue() error {
 		if err != nil {
 			return err
 		}
+
 		// read body
-		buf = make([]byte, r.lenBody+2)
-		_, err = r.conn.Read(buf)
-		if err != nil {
-			return err
+		r.lenBody += 2
+		line = nil
+
+		var n int
+		for r.lenBody > 0 {
+			buf = make([]byte, r.lenBody)
+			n, err = r.conn.Read(buf)
+			if err != nil {
+				return err
+			}
+			r.lenBody -= n
+			line = append(line, buf...)
 		}
-		r.values = strings.Split(strings.TrimSpace(string(buf)), r.delimiter)
+		r.original = string(line)
+		r.values = strings.Split(strings.TrimSpace(string(line)), r.delimiter)
 		r.doStep = true
 		return nil
 

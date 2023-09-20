@@ -1,6 +1,7 @@
 package mymem
 
 import (
+	"io"
 	"net"
 )
 
@@ -33,14 +34,17 @@ type Rows struct {
 	Key  string
 	Flag int
 
+	rd        io.Reader
 	conn      net.Conn
 	delimiter string
 	container *struct {
 		Value []string
 		Key   string
 	}
-	lenBody int
-	values  []string
-	doStep  bool
-	err     error
+
+	lenBody  int
+	values   []string
+	original string
+	doStep   bool
+	err      error
 }
