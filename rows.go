@@ -30,7 +30,13 @@ func (r *Rows) Next() bool {
 
 func (r *Rows) newConn(m *MySQLMemcached) *Rows {
 	r.delimiter = m.delimiter
-	r.conn, r.err = net.DialTimeout("tcp", m.host, time.Second)
+	switch m.network {
+	case "unix", "tcp":
+		r.conn, r.err = net.DialTimeout("tcp", m.host, time.Second)
+	default:
+		r.err = fmt.Errorf("mymem: not supported network type `%s`", m.network)
+	}
+
 	if r.err != nil {
 		r.err = fmt.Errorf("mymem: connection error: %v", r.err)
 	}
