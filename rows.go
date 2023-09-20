@@ -164,7 +164,7 @@ func (r *Rows) readValue() error {
 				return err
 			}
 			r.lenBody -= n
-			line = append(line, buf...)
+			line = append(line, buf[:n]...)
 		}
 		r.original = string(line)
 		r.values = strings.Split(strings.TrimSpace(string(line)), r.delimiter)
