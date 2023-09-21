@@ -1,8 +1,6 @@
 package mymem
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"testing"
 )
 
@@ -21,16 +19,8 @@ func TestSet(t *testing.T) {
 		Int    int
 		Bool   bool
 	}
-	b, err := json.MarshalIndent(&b64{String: "string value", Int: 100500}, "", "\t")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("\n%s", b)
 
-	b64val := base64.StdEncoding.EncodeToString(b)
-	t.Logf("\n%s", b64val)
-
-	err = m.Set("dash_session ", "unique_key", b64val, 6400)
+	err := m.Set("dash_session ", "unique_key", &b64{String: "string value", Int: 100500}, 6400)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +113,7 @@ func TestQuery(t *testing.T) {
 	// To get values greater than B but less than M, enter get @>B@<M:
 	// get @>B@<M
 
-	rows, err := m.Query("memc", "partner_keys:api_key:boomer")
+	rows, err := m.Query("partner_keys", 8)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -73,7 +73,7 @@ func (m *MySQLMemcached) Set(name string, key any, args ...any) error {
 			return fmt.Errorf("nil value not supported")
 		}
 		tp := reflect.TypeOf(v)
-		if tp.Kind() != reflect.Pointer {
+		if tp.Kind() == reflect.Pointer {
 			v = reflect.ValueOf(v).Elem().Interface()
 			tp = tp.Elem()
 		}

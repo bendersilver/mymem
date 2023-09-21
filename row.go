@@ -68,7 +68,7 @@ func (r *Rows) setValue(val string, ptr any) (err error) {
 		case reflect.Struct, reflect.Map:
 			return json.Unmarshal(b, ptr)
 		case reflect.Slice:
-			if tp.Elem().Kind() != reflect.Uint8 {
+			if tp.Elem().Kind() == reflect.Uint8 {
 				reflect.ValueOf(ptr).Elem().SetBytes(b)
 			} else {
 				err = json.Unmarshal(b, ptr)
@@ -82,9 +82,12 @@ func (r *Rows) setValue(val string, ptr any) (err error) {
 		}
 
 	}
+	if val == "" {
+		return
+	}
 	_, err = fmt.Sscan(val, ptr)
 	if err != nil {
-		return fmt.Errorf("failed to assign value: %v", err)
+		return fmt.Errorf("mymem: failed to assign value: %v", err)
 	}
 	return
 }
