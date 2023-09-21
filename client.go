@@ -1,15 +1,22 @@
 package mymem
 
 import (
+	"encoding/json"
 	"net"
 )
 
 type B64String string
 type B64Bool bool
-type B64Byte []byte
 type B64Int int64
 type B64Uint uint64
 type B64Float float64
+
+type B64Byte []byte
+
+func (b *B64Byte) Unmarshal(ptr any) error {
+	return json.Unmarshal([]byte(*b), &ptr)
+}
+
 type B64Struct struct{}
 
 // B64UnmarshalJSON - only get in reflection
