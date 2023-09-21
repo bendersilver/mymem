@@ -1,7 +1,6 @@
 package mymem
 
 import (
-	"encoding/json"
 	"net"
 )
 
@@ -10,17 +9,6 @@ type B64Bool bool
 type B64Int int64
 type B64Uint uint64
 type B64Float float64
-
-type B64Byte []byte
-
-func (b *B64Byte) Unmarshal(ptr any) error {
-	return json.Unmarshal([]byte(*b), &ptr)
-}
-
-type B64Struct struct{}
-
-// B64UnmarshalJSON - only get in reflection
-func (b *B64Struct) B64UnmarshalJSON() {}
 
 // INSERT INTO innodb_memcache.containers
 // VALUES('containers', 'innodb_memcache', 'containers', 'name', 'key_columns|value_columns', 0, 0, 0, 'PRIMARY');

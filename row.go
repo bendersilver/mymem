@@ -46,41 +46,44 @@ func (r *Rows) Scan(ptrs ...any) error {
 	}
 	return nil
 }
+
 func (r *Rows) setValue(val string, ptr any) (err error) {
-	v := reflect.ValueOf(ptr)
-	if v.Kind() != reflect.Pointer {
+	tp := reflect.TypeOf(ptr)
+	if tp.Kind() != reflect.Pointer {
 		return ErrNonPrt
 	}
-	typeName := v.Elem().Type().Name()
-	switch typeName {
-	case "B64Byte", "B64String", "B64Bool", "B64Int", "B64Uint", "B64Float":
-		b, e := base64.StdEncoding.DecodeString(val)
-		if e != nil {
-			return fmt.Errorf("failed to decode base64 value: %v", e)
+	tp = tp.Elem()
+	var b []byte
+	switch ptr.(type) {
+	case B64String, B64Bool, B64Int, B64Uint, B64Float:
+		b, err = base64.StdEncoding.DecodeString(val)
+	}
+	switch tp.Kind() {
+	case reflect.Struct, reflect.Slice, reflect.Map:
+		b, err = base64.StdEncoding.DecodeString(val)
+	}
+	if b != nil {
+		switch tp.Kind() {
+		case reflect.Struct, reflect.Map:
+			return json.Unmarshal(b, ptr)
+		case reflect.Slice:
+			if tp.Elem().Kind() != reflect.Uint8 {
+				reflect.ValueOf(ptr).Elem().SetBytes(b)
+			} else {
+				err = json.Unmarshal(b, ptr)
+			}
+			return
+		case reflect.String:
+			reflect.ValueOf(ptr).Elem().SetString(string(b))
+			return
+		default:
+			val = string(b)
 		}
-		val = string(b)
 
 	}
-	_, ok := reflect.TypeOf(ptr).MethodByName("B64UnmarshalJSON")
-	if ok {
-		b, e := base64.StdEncoding.DecodeString(val)
-		if e != nil {
-			return fmt.Errorf("failed to decode base64 value: %v", e)
-		}
-		return json.Unmarshal(b, ptr)
-	}
-
-	switch v.Elem().Interface().(type) {
-	case string, B64String:
-		v.Elem().SetString(val)
-		return
-	case []byte, B64Byte:
-		v.Elem().SetBytes([]byte(val))
-	default:
-		_, err = fmt.Sscan(val, ptr)
-		if err != nil {
-			return fmt.Errorf("failed to assign value: %v", err)
-		}
+	_, err = fmt.Sscan(val, ptr)
+	if err != nil {
+		return fmt.Errorf("failed to assign value: %v", err)
 	}
 	return
 }

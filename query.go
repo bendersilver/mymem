@@ -1,7 +1,10 @@
 package mymem
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -69,6 +72,29 @@ func (m *MySQLMemcached) Set(name string, key any, args ...any) error {
 		if v == nil {
 			return fmt.Errorf("nil value not supported")
 		}
+		tp := reflect.TypeOf(v)
+		if tp.Kind() != reflect.Pointer {
+			v = reflect.ValueOf(v).Elem().Interface()
+			tp = tp.Elem()
+		}
+		switch v.(type) {
+		case B64String, B64Bool, B64Int, B64Uint, B64Float:
+			values = append(values, base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v", v))))
+			continue
+		}
+
+		var b []byte
+		var ok bool
+
+		switch tp.Kind() {
+		case reflect.Struct, reflect.Map, reflect.Slice:
+			if b, ok = v.([]byte); !ok {
+				b, r.err = json.Marshal(v)
+			}
+			values = append(values, base64.StdEncoding.EncodeToString(b))
+			continue
+		}
+
 		values = append(values, fmt.Sprintf("%v", v))
 	}
 	body := strings.Join(values, m.delimiter)
