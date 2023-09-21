@@ -62,6 +62,7 @@ func (r *Rows) setValue(val string, ptr any) (err error) {
 	case reflect.Struct, reflect.Slice, reflect.Map:
 		b, err = base64.StdEncoding.DecodeString(val)
 	}
+
 	if b != nil {
 		switch tp.Kind() {
 		case reflect.Struct, reflect.Map:
@@ -103,8 +104,13 @@ func (r *Rows) ScanStruct(ptr any) error {
 	}
 	t := reflect.TypeOf(ptr).Elem()
 	for i := 0; i < v.NumField(); i++ {
-		jname, ok := t.Field(i).Tag.Lookup("json")
+		var jname string
+		var ok bool
+		jname, ok = t.Field(i).Tag.Lookup("mymem")
 		if !ok {
+			jname, ok = t.Field(i).Tag.Lookup("json")
+		}
+		if !ok || jname == "-" {
 			continue
 		}
 		for ix, key := range r.container.Value {
