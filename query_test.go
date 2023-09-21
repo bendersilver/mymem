@@ -141,6 +141,7 @@ func TestQuery(t *testing.T) {
 			continue
 		}
 		t.Log(k)
+
 	}
 	if rows.Err() != nil {
 		t.Fatal(rows.Err())

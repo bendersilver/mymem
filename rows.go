@@ -61,7 +61,7 @@ func (r *Rows) getContainers(name string) *Rows {
 		Value []string
 		Key   string
 	}{r.values, r.values[0]}
-
+	r.values = nil
 	return r
 }
 
@@ -75,6 +75,7 @@ func (r *Rows) cdNamespace(name string) *Rows {
 		return r
 	}
 	r.readAllItems()
+	r.values = nil
 	return r
 	// failed to locate entry in config table 'containers' in database 'innodb_memcache'
 }
@@ -133,6 +134,7 @@ func (r *Rows) readValue() error {
 	if r.err != nil {
 		return r.err
 	}
+
 	var err error
 	var line []byte
 	buf := make([]byte, 1)
