@@ -127,7 +127,7 @@ func TestQuery(t *testing.T) {
 	// To get values greater than B but less than M, enter get @>B@<M:
 	// get @>B@<M
 
-	rows, err := m.Query("queue", "@>")
+	rows, err := m.Query("memc", "partner_keys:api_key:boomer")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,14 +135,12 @@ func TestQuery(t *testing.T) {
 	defer rows.Close()
 	var k string
 	for rows.Next() {
-		err = rows.Scan(&k, nil, nil)
-		t.Logf("\nlen body: %d %s", rows.lenBody, rows.original)
+		err = rows.Scan(nil, &k)
 		if err != nil {
-			t.Logf("\n%v\n%v", rows.container.Value, rows.original)
-
 			t.Fatal(err)
 			continue
 		}
+		t.Log(k)
 	}
 	if rows.Err() != nil {
 		t.Fatal(rows.Err())

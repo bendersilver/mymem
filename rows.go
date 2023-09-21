@@ -46,7 +46,7 @@ func (r *Rows) getContainers(name string) *Rows {
 		r.err = fmt.Errorf("mymem: write query get containers: %v", r.err)
 		return r
 	}
-	r.err = r.readAllItems()
+	r.readAllItems()
 	if r.err != nil {
 		if r.err == ErrNotFound {
 			r.err = fmt.Errorf("mymem: required adding innodb_memcache.containers to memcache")
@@ -74,7 +74,7 @@ func (r *Rows) cdNamespace(name string) *Rows {
 		r.err = fmt.Errorf("mymem: write query cd namespace: %v", r.err)
 		return r
 	}
-	r.err = r.readAllItems()
+	r.readAllItems()
 	return r
 	// failed to locate entry in config table 'containers' in database 'innodb_memcache'
 }
@@ -92,12 +92,15 @@ func (r *Rows) writeCMD(cmd string) *Rows {
 }
 
 func (r *Rows) writeEndLine() (err error) {
+	if r.err != nil {
+		return r.err
+	}
 	var out []byte
 	buf := make([]byte, 1)
 	for {
 		_, err = r.conn.Read(buf)
 		if err != nil {
-			return
+			return fmt.Errorf("mymem: read end line error: %v", err)
 		}
 		out = append(out, buf...)
 		if bytes.HasSuffix(out, []byte("\r\n")) {
@@ -118,18 +121,17 @@ func (r *Rows) writeEndLine() (err error) {
 	return fmt.Errorf("mymem: unexpected line in response: '%s'", out)
 }
 
-func (r *Rows) readAllItems() error {
+func (r *Rows) readAllItems() {
 	for r.Next() {
 		if r.err != nil {
-			return r.err
+			return
 		}
 	}
-	return r.err
 }
 
 func (r *Rows) readValue() error {
 	if r.err != nil {
-		return r.err //fmt.Errorf("closed network connection")
+		return r.err
 	}
 	var err error
 	var line []byte
@@ -137,7 +139,7 @@ func (r *Rows) readValue() error {
 	for {
 		_, err = r.conn.Read(buf)
 		if err != nil {
-			return err
+			return fmt.Errorf("mymem: read first line error: %v", err)
 		}
 		line = append(line, buf...)
 		if bytes.HasSuffix(line, []byte("\r\n")) {
@@ -149,7 +151,7 @@ func (r *Rows) readValue() error {
 		r.values = nil
 		_, err = fmt.Sscanf(string(line), "VALUE %s %d %d\r\n", &r.Key, &r.Flag, &r.lenBody)
 		if err != nil {
-			return err
+			return fmt.Errorf("mymem: ssca line error: %v", err)
 		}
 
 		// read body
@@ -161,7 +163,7 @@ func (r *Rows) readValue() error {
 			buf = make([]byte, r.lenBody)
 			n, err = r.conn.Read(buf)
 			if err != nil {
-				return err
+				return fmt.Errorf("mymem: read body error: %v", err)
 			}
 			r.lenBody -= n
 			line = append(line, buf[:n]...)
@@ -182,5 +184,5 @@ func (r *Rows) readValue() error {
 		return ErrQuery
 
 	}
-	return ErrUnexpected
+	return fmt.Errorf("mymem: unexpected line in response: '%s'", line)
 }
